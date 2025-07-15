@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Interactive 3D Model Viewer</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+      }
+      canvas {
+        width: 100%;
+        height: 100%;
+      }
+      #info {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        color: white;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 10px;
+        font-family: Arial, sans-serif;
+      }
+      #xrButton {
+        position: absolute;
+        bottom: 20px;
+        right: 20px;
+        padding: 10px 20px;
+        background: #007bff;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-family: Arial, sans-serif;
+      }
+      #xrButton:disabled {
+        background: #cccccc;
+        cursor: not-allowed;
+      }
+      #fileInput {
+        position: absolute;
+        bottom: 20px;
+        left: 20px;
+        padding: 10px;
+        background: #ffffff;
+        border-radius: 5px;
+        font-family: Arial, sans-serif;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="info">Upload a 3D model to view it</div>
+    <input type="file" id="fileInput" accept=".gltf,.glb,.fbx,.obj,.ply,.stl" />
+    <button id="xrButton">Enter VR</button>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/OBJLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/FBXLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/STLLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/PLYLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/controls/OrbitControls.js"></script>
+    <script>
+      // Scene setup
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(
+        75,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
+      );
+      camera.position.set(0, 0, 5);
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.xr.enabled = true;
+      document.body.appendChild(renderer.domElement);
+
+      // Lighting
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+      scene.add(ambientLight);
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+      directionalLight.position.set(0, 1, 1);
+      scene.add(directionalLight);
+
+      // Loaders for different model formats
+      const gltfLoader = new THREE.GLTFLoader();
+      const objLoader = new THREE.OBJLoader();
+      const fbxLoader = new THREE.FBXLoader();
+      const stlLoader = new THREE.STLLoader();
+      const plyLoader = new THREE.PLYLoader();
+
+      let model = null;
+
+      // File input handler
+      document
+        .getElementById("fileInput")
+        .addEventListener("change", function (event) {
+          const file = event.target.files[0];
+          if (!file) return;
+
+          const fileName = file.name.toLowerCase();
+          const reader = new FileReader();
+
+          reader.onload = function (e) {
+            // Remove previous model if there
+            if (model) {
+              scene.remove(model);
+            }
+
+            document.getElementById(
+              "info"
+            ).innerText = `Loading ${file.name}...`;
+
+            try {
+              if (fileName.endsWith(".gltf") || fileName.endsWith(".glb")) {
+                gltfLoader.parse(
+                  e.target.result,
+                  "",
+                  function (gltf) {
+                    model = gltf.scene;
+                    setupModel();
+                  },
+                  function (error) {
+                    console.error("Error loading GLTF:", error);
+                    document.getElementById("info").innerText =
+                      "Error loading GLTF model";
+                  }
+                );
+              } else if (fileName.endsWith(".obj")) {
+                model = objLoader.parse(e.target.result);
+                setupModel();
+              } else if (fileName.endsWith(".fbx")) {
+                model = fbxLoader.parse(e.target.result);
+                setupModel();
+              } else if (fileName.endsWith(".stl")) {
+                const geometry = stlLoader.parse(e.target.result);
+                const material = new THREE.MeshStandardMaterial({
+                  color: 0xaaaaaa,
+                });
+                model = new THREE.Mesh(geometry, material);
+                setupModel();
+              } else if (fileName.endsWith(".ply")) {
+                const geometry = plyLoader.parse(e.target.result);
+                const material = new THREE.MeshStandardMaterial({
+                  color: 0xaaaaaa,
+                });
+                model = new THREE.Mesh(geometry, material);
+                setupModel();
+              } else {
+                document.getElementById("info").innerText =
+                  "Unsupported file format";
+              }
+            } catch (error) {
+              console.error("Error loading model:", error);
+              document.getElementById("info").innerText = "Error loading model";
+            }
+          };
+
+          if (fileName.endsWith(".gltf") || fileName.endsWith(".json")) {
+            reader.readAsText(file);
+          } else {
+            reader.readAsArrayBuffer(file);
+          }
+        });
+
+      function setupModel() {
+        // Center and scale the model
+        const box = new THREE.Box3().setFromObject(model);
+        const center = box.getCenter(new THREE.Vector3());
+        const size = box.getSize(new THREE.Vector3());
+
+        model.position.x += model.position.x - center.x;
+        model.position.y += model.position.y - center.y;
+        model.position.z += model.position.z - center.z;
+
+        // Scale to fit in view
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const scale = 5 / maxDim;
+        model.scale.set(scale, scale, scale);
+
+        scene.add(model);
+        document.getElementById("info").innerText =
+          "Use VR controllers or mouse to interact with the model";
+
+        // Add annotations
+        addAnnotations();
+      }
+
+      // OrbitControls for mouse interaction
+      const controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+
+      // VR Controllers
+      const controller1 = renderer.xr.getController(0);
+      const controller2 = renderer.xr.getController(1);
+      scene.add(controller1);
+      scene.add(controller2);
+
+      let isSelecting = false;
+      let isScaling = false;
+      let initialDistance = 0;
+
+      controller1.addEventListener("selectstart", () => {
+        isSelecting = true;
+      });
+      controller1.addEventListener("selectend", () => {
+        isSelecting = false;
+      });
+      controller2.addEventListener("selectstart", () => {
+        isScaling = true;
+        const pos1 = controller1.position;
+        const pos2 = controller2.position;
+        initialDistance = pos1.distanceTo(pos2);
+      });
+      controller2.addEventListener("selectend", () => {
+        isScaling = false;
+      });
+
+      // Annotations
+      function addAnnotations() {
+        if (!model) return;
+
+        const annotationGeometry = new THREE.SphereGeometry(0.05, 16, 16);
+        const annotationMaterial = new THREE.MeshBasicMaterial({
+          color: 0xff0000,
+        });
+
+        const box = new THREE.Box3().setFromObject(model);
+        const size = box.getSize(new THREE.Vector3());
+
+        const annotations = [
+          {
+            position: new THREE.Vector3(0, 0, -1).multiplyScalar(size.z / 2),
+            text: "Right Side",
+          },
+          {
+            position: new THREE.Vector3(0, 0, 1).multiplyScalar(size.z / 2),
+            text: "Left Side",
+          },
+          {
+            position: new THREE.Vector3(0, 1, 0).multiplyScalar(size.y / 2),
+            text: "Top",
+          },
+          {
+            position: new THREE.Vector3(0, -1, 0).multiplyScalar(size.y / 2),
+            text: "Bottom",
+          },
+          {
+            position: new THREE.Vector3(-1, 0, 0).multiplyScalar(size.x / 2),
+            text: "Front",
+          },
+          {
+            position: new THREE.Vector3(1, 0, 0).multiplyScalar(size.x / 2),
+            text: "Back",
+          },
+        ];
+
+        annotations.forEach((ann) => {
+          const marker = new THREE.Mesh(annotationGeometry, annotationMaterial);
+          marker.position.copy(ann.position);
+          marker.userData = { text: ann.text };
+          model.add(marker);
+        });
+      }
+
+      const raycaster = new THREE.Raycaster();
+      const mouse = new THREE.Vector2();
+      let intersected;
+
+      function onMouseMove(event) {
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+      }
+
+      window.addEventListener("mousemove", onMouseMove, false);
+
+      // WebXR
+      const xrButton = document.getElementById("xrButton");
+      xrButton.addEventListener("click", async () => {
+        if (!navigator.xr) {
+          xrButton.textContent = "WebXR Not Supported";
+          xrButton.disabled = true;
+          return;
+        }
+        try {
+          const session = await navigator.xr.requestSession("immersive-vr", {
+            optionalFeatures: ["local-floor", "bounded-floor"],
+          });
+          renderer.xr.setSession(session);
+          xrButton.textContent = "Exit VR";
+          session.addEventListener("end", () => {
+            xrButton.textContent = "Enter VR";
+          });
+        } catch (error) {
+          console.error("Error starting XR session:", error);
+          xrButton.textContent = "VR Not Available";
+          xrButton.disabled = true;
+        }
+      });
+
+      function animate() {
+        renderer.setAnimationLoop(() => {
+          controls.update();
+
+          // VR Controller interaction
+          if (model) {
+            if (isSelecting) {
+              const controllerPos = controller1.position;
+              model.position.lerp(controllerPos, 0.1);
+            }
+            if (isScaling && initialDistance > 0) {
+              const pos1 = controller1.position;
+              const pos2 = controller2.position;
+              const currentDistance = pos1.distanceTo(pos2);
+              const scaleFactor = currentDistance / initialDistance;
+              model.scale.multiplyScalar(scaleFactor);
+              initialDistance = currentDistance;
+            }
+          }
+
+          // Check for annotation hover
+          raycaster.setFromCamera(mouse, camera);
+          const intersects = model
+            ? raycaster.intersectObjects(model.children, true)
+            : [];
+          if (intersects.length > 0) {
+            const obj = intersects[0].object;
+            if (obj.userData && obj.userData.text) {
+              intersected = obj;
+              document.getElementById("info").innerText = obj.userData.text;
+            }
+          } else if (intersected) {
+            intersected = null;
+            document.getElementById("info").innerText =
+              "Use VR controllers or mouse to interact with the model";
+          }
+
+          renderer.render(scene, camera);
+        });
+      }
+
+      animate();
+
+      // Handle window resize
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    </script>
+  </body>
+</html>
