@@ -62,6 +62,12 @@ This project uses the following libraries via CDN:
 📧 [giftahanonu@outlook.com](mailto:giftahanonu@outlook.com)
 🔗 [LinkedIn](https://www.linkedin.com/in/giftahanonu)
 
+
+<img width="1914" height="833" alt="Screenshot 2025-07-15 110640" src="https://github.com/user-attachments/assets/854ffd72-d9a2-4ce4-8ff3-e015428c88dd" />
+<img width="1908" height="825" alt="Screenshot 2025-07-15 111442" src="https://github.com/user-attachments/assets/2de8bef9-67e4-4583-955a-6d63836f9d23" />
+
+
+
 ---
 
 > © 2025 Gift Ahanonu — Open-source for learning and experimentation.
