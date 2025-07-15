@@ -64,5 +64,5 @@ This project uses the following libraries via CDN:
 
 ---
 
-> © 2025 Gift Onyinyechi Ahanonu — Open-source for learning and experimentation.
+> © 2025 Gift Ahanonu — Open-source for learning and experimentation.
 
